@@ -1,0 +1,286 @@
+---
+title: "R Notebook"
+output:
+  word_document: default
+  html_notebook: default
+  pdf_document: default
+  html_document: default
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+
+
+```{r}
+#install.packages("readxl")
+#install.packages("tidyverse")
+
+```
+
+```{r}
+library(tidyverse)
+library(readxl)
+```
+
+```{r}
+getwd()
+data = read_excel("Prob_Assignment_Dataset.xlsx")
+```
+
+```{r}
+str(data)
+names(data)
+View(data)
+```
+
+#PART-1 : UNIVARIATE ANALYSIS
+Let us use qplot function to plot a histogram. For example, let us plot a histogram to see 
+which platform is most popular among the users.
+```{r}
+ggplot(data = data) +
+  geom_bar(mapping = aes(x = platform))
+```
+
+
+
+
+The above graph doesnt provide much insights.Though we can group the frequencies into two different slots i.e 'Mobile_users' and 'Desktop_users'
+
+```{r}
+unique(data$platform)
+
+```
+```{r}
+data <- data %>%
+  mutate(User = ifelse(platform == "Android"|platform =="BlackBerry" |platform =="iPad"|platform == "iphone"|platform == "WindowsPhone"|platform == "ios","Mobile",
+         ifelse(platform == "Windows"|platform == "Macintosh"|platform == "Linux" |platform == "SymbianOS" |platform =="MacOSX"|platform == "ChromeOS", "Desktop","Others")))
+        
+#unique(data$User)
+```
+
+
+```{r}
+#View(data)
+qplot(x=User,data=data)  
+```
+
+
+
+
+The above graph indicates a larger number of Desktop users, maybe due to clear website interface and usability than a mobile app/site.
+
+# Lets explore variable 'sites'
+```{r}
+qplot(x=site,data=data)
+
+```
+
+
+
+
+
+The above graph is unimodal ,hence it does not point towards a particular favourite, though 'Acme','Pinnacle' and 'Sortly' among the most popular sites among the end-users.
+
+
+
+Now let us look at the site wise summary of visits on each site using piping and summarize function :
+```{r}
+data %>%
+  group_by(site) %>%
+  summarize(mean_visits = mean(visits), median_visits = median(visits), std_visits = sd(visits), IQR_visits =  IQR(visits))
+  
+```
+
+
+
+Plotting Boxplot between "site" and "visits" and interpret the same using above summarized statistics
+Note->Because of so many outliers, we set a cutoff at  1.5 times maximum IQR value.
+
+```{r}
+qplot(x = site, y = visits, data = data, geom='boxplot', ylim=c(0,4500))
+```
+
+
+Narrowing down further ->
+```{r}
+
+qplot(x = site, y = visits, data = data, geom='boxplot', ylim=c(0,450))
+```
+
+
+
+#Analysis from above two graphs ->
+
+1.Most of the the Box-Plots are "highly right-skewed" i.e most of the observations are concentrated on the low end of the scale.
+
+2.Huge number of outliers(i.e observations beyond 1.5IQR) for sites "Acme" and "Sortly" ,with very extreme observations depicting high number of visits.
+
+3.No outliers for site "Widgetry" and "Tabular" with large IQR (i.e middle 50% of the data is more spread out), with smaller number of total observations(as seen in above histogram) 
+
+
+Since most of the Box-plots above are "Right-skewed" , log transformation will be useful in anlyzing the "visits" variable as shown below ->
+```{r}
+
+```
+
+
+
+
+#PART-2 : Conversion Rate "Add_to_cart" v/s "Orders"(Bivariate Analysis)
+
+Let calculate conversion rate i.e Orders per add_to_cart by adding a new column ConversioN_Rate
+```{r}
+data <- data %>%
+  mutate(conversion_rate = ifelse(add_to_cart ==0 & orders == 0 ,NA,round(orders/add_to_cart,2)))
+
+  
+```
+
+```{r}
+summary(data$conversion_rate)
+```
+
+```{r}
+ggplot(data = data, mapping = aes(x = conversion_rate)) + 
+  geom_histogram(binwidth = 0.05)
+
+```
+
+
+
+#Lets create Box-plots for each Site
+```{r}
+qplot(x = site, y = conversion_rate, data = data, geom='boxplot',ylim = c(0,3))
+```
+
+
+
+#Part-3 : Bounces
+The "bounce rate" is the percentage of single-page visits. That is, a visitor lands on a page and then leaves the site, rather than exploring further(very low time spent and no interactions).
+A high bounce rate can mean several things, including weak or irrelevant sources of traffic and landing pages that aren't optimized for conversion (have a poor design, low usability or high load times).
+
+
+
+Lets Plot a Scatter plot between Visits and Bounces
+```{r}
+ggplot(aes(x = visits, y = bounces), data = data)+geom_point(na.rm = TRUE)
+```
+
+
+
+
+#Observations:
+1.Above graph clearly shows a positive linear relationship between the two variables 'visits' and 'bounces'.
+2.For lower number of visits, the bounces vary a lot more, whereas as number of visits increases, the relationship tends to linear.
+
+
+
+#Lets find the percentage of single-page-visits(bounce_rate) w.r.t the visits and plot the same.
+```{r}
+data <- data %>%
+  mutate(bounce_rate = ifelse(visits == 0 ,NA,round(1-((visits-bounces)/visits),2)))
+
+
+```
+
+#Lets further analyze bounce_rate and group it by site and then summarize
+
+
+```{r}
+
+
+data %>%
+  na.omit() %>%
+  group_by(site) %>%
+  summarize(mean_bounce = mean(bounce_rate), median_bounce = median(bounce_rate), sd_bounce = sd(bounce_rate))
+```
+
+
+#Lets do a frquency plot of site-wise "bounce_rate" to get a clear picture of above stats.
+```{r}
+ggplot(data = data, mapping = aes(x = bounce_rate, colour = site)) +
+  geom_freqpoly(binwidth = 0.1)
+```
+
+
+
+#Observations
+1. "Widgetry" ,"Tabular" and "Botly" have quit low (almost 0) bounce rates.
+2. "Acme" has a peak at bounce rate of 20% and has bounce rates on lower side as compared     to "Pinnacle" which has high bounce rates than "Acme" as soon as it crosses bounce rate of approx "0.5".
+3."Sorty" and "Pinnacle" have comparable bounce rates.
+
+
+#Part-4 :Relation b/w Visits and Distinct Sessions
+
+1. Distinct Sessions measure the number of distinct individuals who go to the website.
+2. Distinct Sessions are especially important because they represent the number of individuals who visit the website in a particular frame of time.
+3. Understanding the percentage of distinct sessions relative to the total visits is an effective way for ecommerce businesses to evaluate their retention rates and ability to bring back old customers.
+
+4. The diference between Visits and Distinct Sessions is another important metric to tabulate number of repeat visitors.If the total number of repeat visitors increases over time, it is an indication that people are connecting with a brand. An ever-increasing rate of repeat visitors is an indication that the website is compelling enough to become "sticky".
+
+```{r}
+data <- data %>%
+  mutate(repeat_visitors = visits - distinct_sessions)
+```
+```{r}
+head(data)
+```
+
+#Now lets find the Correlation value between "repeat_visitors" and "Gross_sales"
+
+```{r}
+cor.test(data$repeat_visitors, data$gross_sales, method='pearson')
+```
+
+
+We see a high positive correlation between "gross_sales" and "repeat_visitors" 
+
+#Plot the scatter plot 
+```{r}
+ggplot(aes(x=repeat_visitors,y=gross_sales),data=data) + 
+  geom_point()
+```
+
+
+
+#There are some outliers where gross_sales=0.Why ?
+1.
+
+Lets look at it from another perspective
+```{r}
+ggplot(data = data, mapping = aes(x = repeat_visitors, y = gross_sales)) + 
+  geom_boxplot(mapping = aes(group = cut_width(repeat_visitors, 1000))) +
+  xlim(0,quantile(data$repeat_visitors,0.99)) 
+```
+
+There is a huge outlier at around repeat_visitors = 8500 for which the gross_sales are unexpectinly high and low as well (Note- it may be a data entry issue i.e incorrect data or may be real outliers of the data) 
+
+#Part-6 :Orders per Visit(Orders/visit) 
+
+1.The value of a visit is tied directly to the interactions per visit. You can calculate this simply as number of visits divided by total value created.
+2.Calculating value per visit is difficult because there are many intangibles involved that create value that is hard to define,But here we ignore other intangible value created.
+
+```{r}
+
+data <- data %>%
+  mutate(Order_per_visit = ifelse(orders ==0 & visits == 0 ,NA,round(orders/visits,2)))
+```
+```{r}
+summary(data$Order_per_visit)
+
+```
+
+#Lets plot orders/visit for each day/month of the year
+
+```{r}
+ggplot(data, aes(x = day, y = Order_per_visit)) +
+  geom_point(alpha=1/20,color='orange') +
+  geom_line(stat='summary',fun.y=mean)
+  
+```
+
+#Observations:
+1. There is miising data around April 2013 Or the site wasnt functioning.
+2.The Orders_per_visit follow a very usual pattern for all parts of the year.
+3.Orders_per_visit between 0.75 and 1 are quit less.
+
